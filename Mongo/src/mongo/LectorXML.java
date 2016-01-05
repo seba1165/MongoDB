@@ -23,12 +23,14 @@ public class LectorXML extends DefaultHandler{
     MongoClient mongoClient; 
     DB db;
     ArrayList Stopwords;
+    int particiones;
      
-    public LectorXML(Articulo articulo, ArrayList Stopwords){  
+    public LectorXML(Articulo articulo, ArrayList Stopwords, int particiones){  
        this.articulo=articulo;
        mongoClient = new MongoClient();
        db = mongoClient.getDB("LabSD");
        this.Stopwords = Stopwords;
+       this.particiones = particiones;
     }  
 
     @Override  
@@ -39,8 +41,7 @@ public class LectorXML extends DefaultHandler{
     }  
 
     @Override  
-    public void characters(char[] ch, int start, int length)  
-          throws SAXException {  
+    public void characters(char[] ch, int start, int length) throws SAXException {  
        // Guardamos el texto en la variable temporal  
        valor = new String(ch,start,length);
        articulo.agregaTexto(valor);
@@ -57,7 +58,7 @@ public class LectorXML extends DefaultHandler{
         }else if (localName.equals("format")) {
             articulo.setText("");
         }else if (localName.equals("text")){
-            Mongo.insertarArticulo(articulo.title, articulo.text, db, Stopwords);
+            Mongo.insertarArticulo(articulo.title, articulo.text, db, Stopwords, particiones);
             articulo.setText("");
        }
     }  

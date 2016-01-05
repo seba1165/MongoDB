@@ -12,6 +12,7 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.MongoClient;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -38,49 +39,58 @@ public class Mongo {
         MongoClient mongoClient = new MongoClient();
         DB db = mongoClient.getDB("LabSD");
         ArrayList Stopwords = leerStopWords();
-        String collectionName1 = "Wikipedia";
-        DBCollection Wikipedia;
-        DBCollection IndiceInvertido;
-        if (db.collectionExists(collectionName1) == false) {
-            //I can confirm that the collection is created at this point.
-            Wikipedia = db.createCollection(collectionName1, new BasicDBObject());
-            //I would highly recommend you check the 'school' DBCollection to confirm it was actually created
-            System.out.println("Collection Wikipedia creada con exito");
-        } else {
-            Wikipedia = db.getCollection(collectionName1);
-        }
-
-        String collectionName2 = "IndiceInvertido";
-
-        if (db.collectionExists(collectionName2) == false) {
-            //I can confirm that the collection is created at this point.
-            IndiceInvertido = db.createCollection(collectionName2, new BasicDBObject());
-            //I would highly recommend you check the 'school' DBCollection to confirm it was actually created
-            System.out.println("Collection IndiceInvertido creada con exito");
-        } else {
-            IndiceInvertido = db.getCollection(collectionName2);
-        }
+        String [] Part;
+        File archivo = new File("Config.txt");
+        FileReader fr = new FileReader(archivo);
+        BufferedReader br = new BufferedReader(fr);
+        String linea1 = br.readLine();
+        Part = linea1.split(" ");
+        int canTpart = Integer.parseInt(Part[1]);
+        fr.close();
+        DBCollection Wikipedia[] = new DBCollection[canTpart];
+        DBCollection IndiceInvertido[] = new DBCollection[canTpart];
         BasicDBObject indexWiki = new BasicDBObject("title", 1);
         BasicDBObject indexIndice = new BasicDBObject("key", 1);
+        if(canTpart<1){
+            System.out.println("Ingrese los parametros de forma correcta");
+        }else{
+            for (int i = 0; i < canTpart; i++) {
+                String collectionWiki = "Wikipedia";
+                String WikiNum = collectionWiki + i;
+                if (db.collectionExists(WikiNum) == false) {
+                Wikipedia[i] = db.createCollection(WikiNum, new BasicDBObject());
 
-        Wikipedia.createIndex(indexWiki);
-        IndiceInvertido.createIndex(indexIndice);
+                } else {
+                    Wikipedia[i] = db.getCollection(WikiNum);
+                }
+                Wikipedia[i].createIndex(indexWiki);
+            }
+            System.out.println("Collections de Wikipedia creadas con exito");
+            for (int i = 0; i < canTpart; i++) {
+                String collectionIndice = "IndiceInvertido";
+                String IndiceNum = collectionIndice + i;
+                if (db.collectionExists(IndiceNum) == false) {
+                IndiceInvertido[i] = db.createCollection(IndiceNum, new BasicDBObject());
+                } else {
+                    IndiceInvertido[i] = db.getCollection(IndiceNum);
+                }
+                IndiceInvertido[i].createIndex(indexIndice);
+            }
+            System.out.println("Collections de IndiceInvertido creadas con exito");
 
-        try {
-            Articulo articulo = new Articulo();
-            // Creamos la factoria de parseadores por defecto  
-            XMLReader reader = XMLReaderFactory.createXMLReader();
-            // Añadimos nuestro manejador al reader pasandole el objeto articulo  
-            reader.setContentHandler(new LectorXML(articulo, Stopwords));
-            reader.parse(new InputSource(new FileInputStream("eswiki-20151202-pages-meta-current1.xml")));
-        } catch (SAXException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+            try {
+                Articulo articulo = new Articulo();
+                // Creamos la factoria de parseadores por defecto  
+                XMLReader reader = XMLReaderFactory.createXMLReader();
+                // Añadimos nuestro manejador al reader pasandole el objeto articulo  
+                reader.setContentHandler(new LectorXML(articulo, Stopwords, canTpart));
+                reader.parse(new InputSource(new FileInputStream("eswiki-20151202-pages-meta-current1.xml")));
+            } catch (SAXException | IOException e) {
+                e.printStackTrace();
+            }
+            menu(db, Stopwords, canTpart);
+            //dropCollections(Wikipedia, IndiceInvertido, db);
         }
-        menu(db, Stopwords);
-        //db.getCollection("Wikipedia").drop();
-        //db.getCollection("IndiceInvertido").drop();
     }
 
     private static ArrayList leerStopWords() {
@@ -114,8 +124,8 @@ public class Mongo {
         }
         return Stopwords;
     }
-
-    private static void menu(DB db, ArrayList Stopwords) {
+    
+    private static void menu(DB db, ArrayList Stopwords, int particiones) {
         DBCollection Wikipedia = db.getCollection("Wikipedia");
         DBCollection IndiceInvertido = db.getCollection("IndiceInvertido");
         Scanner scanner = new Scanner(System.in); //Sirve para recoger texto por consola
@@ -138,7 +148,8 @@ public class Mongo {
                     System.out.println("Escriba el artículo a continuación:");
                     scanner.reset();
                     String text = scanner.nextLine();
-                    insertarArticulo(title, text, db, Stopwords);
+//                    insertarArticulo(title, text, db, Stopwords, select)
+//                    insertarArticulo(title, text, db, Stopwords);
                     break;
                 case 2:
                     scanner.reset();
@@ -160,7 +171,7 @@ public class Mongo {
                         articuloModificado.put("text", text);
                         Wikipedia.update(dbObj, articuloModificado);
                         dbObj = findDocumentById(idleido, db);
-                        filtraPalabras(IndiceInvertido, dbObj, Stopwords);
+                        filtraPalabras(dbObj, Stopwords, particiones, db);
                     } else {
                         System.out.println("Articulo no encontrado");
                     }
@@ -191,11 +202,14 @@ public class Mongo {
         }
     }
 
-    public static void insertarArticulo(String title, String text, DB db, ArrayList Stopwords) {
-        DBCollection Wikipedia = db.getCollection("Wikipedia");
-        DBCollection IndiceInvertido = db.getCollection("IndiceInvertido");
-
+    public static void insertarArticulo(String title, String text, DB db, ArrayList Stopwords, int particiones) {
+//        DBCollection Wikipedia = db.getCollection("Wikipedia");
+//        DBCollection IndiceInvertido = db.getCollection("IndiceInvertido");
+        int intColeccion = funcion_hash(title, particiones);
+        String coleccionWiki = "Wikipedia"+intColeccion;
+        DBCollection Wikipedia = db.getCollection(coleccionWiki);
         BasicDBObject artWiki = new BasicDBObject();
+         
 
         artWiki.put("title", title);
         //artWiki.put("text", text);
@@ -203,7 +217,7 @@ public class Mongo {
         if (Wikipedia.findOne(artWiki) == null) {
             artWiki.put("text", text);
             Wikipedia.insert(artWiki);
-            filtraPalabras(IndiceInvertido, Wikipedia.findOne(artWiki), Stopwords);
+            filtraPalabras(Wikipedia.findOne(artWiki), Stopwords, particiones, db);
         } else {
             //System.out.println("Lo sentimos, el articulo no se puede insertar debido a que ya existe");
         }
@@ -224,7 +238,7 @@ public class Mongo {
         }
     }
 
-    private static void filtraPalabras(DBCollection IndiceInvertido, DBObject artWiki, ArrayList Stopwords) {
+    private static void filtraPalabras(DBObject artWiki, ArrayList Stopwords, int particiones, DB db) {
 
         String title = (String) artWiki.get("title");
         String text = (String) artWiki.get("text");
@@ -232,7 +246,7 @@ public class Mongo {
 
         String delimitadores = "[ -<>/.=,;:?!¡¿\\r?\\n|\\}\\{\'\"\\[\\]]+";
         String[] palabrasSeparadas = text.split(delimitadores);
-        System.out.println(palabrasSeparadas.length);
+        //System.out.println(palabrasSeparadas.length);
         
         for (int i = 0; i < palabrasSeparadas.length; i++) {
             if(palabrasSeparadas[i].length()!=0 && palabrasSeparadas[i].length()!=1 && !palabrasSeparadas[i].equals("br")){
@@ -244,6 +258,9 @@ public class Mongo {
         }
         Set<String> quipu = new HashSet<String>(list);
         for (String key : quipu) {
+            int particion = funcion_hash(key, particiones);
+            String coleccionIndice = "IndiceInvertido"+particion;
+            DBCollection IndiceInvertido = db.getCollection(coleccionIndice);
             insertarEnIndiceInvertido(key, Collections.frequency(list, key), artWiki, IndiceInvertido);
         }
     }
@@ -251,10 +268,12 @@ public class Mongo {
     private static void insertarEnIndiceInvertido(String key, int frequency, DBObject artWiki, DBCollection IndiceInvertido) {
         BasicDBObject palabra = new BasicDBObject();
         palabra.put("key", key);
+        //System.out.println(palabra);
         DBObject palabraEnIndice = IndiceInvertido.findOne(palabra);
-
+        //System.out.println(palabra);
         BasicDBObject articulo = new BasicDBObject();
         articulo.put("idArt", artWiki.get("_id"));
+        articulo.put("title", artWiki.get("title"));
         articulo.put("frecuencia", frequency);
 
         if (palabraEnIndice == null) {
@@ -263,7 +282,7 @@ public class Mongo {
             BasicDBObject palabraAInsertar = new BasicDBObject();
             palabraAInsertar.put("key", key);
             palabraAInsertar.put("articulos", articulos);
-            IndiceInvertido.insert(palabraAInsertar);
+            IndiceInvertido.insert(palabraAInsertar); 
         } else {
             IndiceInvertido.update(new BasicDBObject("key", key),
                     new BasicDBObject("$addToSet", new BasicDBObject("articulos", articulo)));
@@ -276,5 +295,22 @@ public class Mongo {
         query.put("_id", new ObjectId(id));
         DBObject dbObj = Wikipedia.findOne(query);
         return dbObj;
+    }
+
+    private static void dropCollections(DBCollection[] Wikipedia, DBCollection[] IndiceInvertido, DB db) {
+        for (int i = 0; i < Wikipedia.length; i++) {
+            Wikipedia[i].drop();
+            IndiceInvertido[i].drop();
+        }
+    }
+    
+    private static int funcion_hash(String x, int particiones) {
+        char ch[];
+        ch = x.toCharArray();
+        int xlength = x.length();
+        int i, sum;
+        for (sum=0, i=0; i < x.length(); i++)
+            sum += ch[i];
+        return sum % particiones;
     }
 }
