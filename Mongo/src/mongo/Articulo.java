@@ -9,6 +9,8 @@ package mongo;
  *
  * @author Seba
  */
+
+//Clase para representar los articulos leidos
 public class Articulo {
     String title;
     String text;

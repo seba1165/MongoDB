@@ -16,6 +16,8 @@ import org.xml.sax.helpers.DefaultHandler;
  *
  * @author Seba
  */
+
+//Clase para leer el xml de entrada con la libreria SAX
 public class LectorXML extends DefaultHandler{
     
     private String valor = null;  
@@ -33,14 +35,15 @@ public class LectorXML extends DefaultHandler{
        this.particiones = particiones;
     }  
 
-    @Override  
+    @Override 
+    //Lee las etiquetas de apertura
     public void startElement(String uri, String localName, String name,  Attributes attributes) throws SAXException {  
-
        // Limpiamos la variable temporal.  
        valor=null;   
     }  
 
-    @Override  
+    @Override
+    //Lee lo que hay entre etiquetas
     public void characters(char[] ch, int start, int length) throws SAXException {  
        // Guardamos el texto en la variable temporal  
        valor = new String(ch,start,length);
@@ -48,6 +51,7 @@ public class LectorXML extends DefaultHandler{
     }  
 
     @Override  
+    //Lee las etiquetas de cierre
     public void endElement(String uri, String localName, String name) throws SAXException {  
        // Según la etiqueta guardamos el valor leido   
        // en una propiedad del objeto libro  
