@@ -4,7 +4,7 @@ Proyecto para leer el archivo xml y generar la base de datos en MongoDB
 Para correr el programa del proyecto MongoDB, se debe tener los archivos Config.txt y Stopwords.txt en la carpeta raíz del proyecto.
 El archivo Config.txt debe contener la línea "particiones N" con N igual a la cantidad de particiones, mientras que en Stopwords.txt se deben encontrar todas aquellas palabras que no seran tomadas en cuenta por el buscador, tanto a la hora de realizar la búsqueda como para crear el índice invertido.
 
-Para crear la bd en mongo es necesaria la librería mongo-java-driver, que permite utilizar todos los comandos para crear collections, insertar datos, modificarlos etc.
+Para crear la bd en mongo es necesaria la librería mongo-java-driver 3.0.4, que permite utilizar todos los comandos para crear collections, insertar datos, modificarlos etc.
 El XML de entrada también debe encontrarse en la carpeta raíz del proyecto.
 
 Luego, si se encuentran los 2 txt correctamente y si no existe una bd con la misma cantidad de collections que la que se quiere crear, se crea la bd llamada "LabSD" con el siguiente formato para los artículos:
